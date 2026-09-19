@@ -8,4 +8,5 @@ parts/
 stage/
 prime/
 *.snap.build.log
+task.md
 
