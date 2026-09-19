@@ -92,5 +92,8 @@ TEST_BIN="${SNAP}/usr/bin/test_conformance/${REMAINING_ARGS[0]}"
 TEST_DIR="$(dirname "$TEST_BIN")"
 TEST_NAME="$(basename "$TEST_BIN")"
 
-cd "$TEST_DIR"
+cd "$TEST_DIR" || {
+    echo "Error: test directory not found: ${TEST_DIR}"
+    exit 1
+}
 exec "./$TEST_NAME" "${REMAINING_ARGS[@]:1}"
