@@ -12,6 +12,8 @@ lint:
 platforms:
   amd64:
     build-on: [amd64]
+  arm64:
+    build-on: [arm64]
 version: '2024-02-27-00'
 license: Apache-2.0
 summary: Khronos OpenCL Conformance Test Suite
@@ -20,7 +22,7 @@ description: |
   tests from source via CMake and ships an executable for running tests.
 
 environment:
-  LD_LIBRARY_PATH: ${SNAP_LIBRARY_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}:$SNAP/usr/lib:$SNAP/usr/lib/x86_64-linux-gnu
+  LD_LIBRARY_PATH: ${SNAP_LIBRARY_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}:$SNAP/usr/lib:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/usr/lib/aarch64-linux-gnu
   PATH: $SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH
 
 apps:
@@ -31,6 +33,11 @@ apps:
       - gpu-2404
   list-tests:
     command: list_tests
+    plugs:
+      - opengl
+      - gpu-2404
+  clinfo:
+    command: clinfo
     plugs:
       - opengl
       - gpu-2404
@@ -60,6 +67,12 @@ parts:
     stage:
       - list_tests
 
+  clinfo-wrapper:
+    source: bin/
+    plugin: dump
+    stage:
+      - clinfo
+
   opencl-cts:
     plugin: nil
     source: https://github.com/KhronosGroup/OpenCL-CTS.git
@@ -81,8 +94,10 @@ parts:
       - unzip
     stage-packages:
       - ocl-icd-libopencl1
-      - intel-opencl-icd
-      - intel-ocloc
+      - clinfo
+      - on amd64:
+        - intel-opencl-icd
+        - intel-ocloc
     override-build: |
       set -eux
       cmake -S "$SNAPCRAFT_PART_SRC" -DCMAKE_BUILD_TYPE=Release -DCL_INCLUDE_DIR=/usr/include/CL -DCL_LIB_DIR=/usr/lib/  -DOPENCL_LIBRARIES=OpenCL
@@ -94,6 +109,10 @@ parts:
 
       mkdir -p "${CRAFT_PART_INSTALL}/usr/bin/"
       cp -r "${SNAPCRAFT_PART_BUILD}/test_conformance" "${CRAFT_PART_INSTALL}/usr/bin/"
+
+      # Ensure the layout bind target always exists, even on arches
+      # (e.g. arm64) where intel-opencl-icd isn't staged.
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/lib/x86_64-linux-gnu/intel-opencl"
 
       # Pre-extract spir zip files so the test can run in the read-only snap
       for zip in "${CRAFT_PART_INSTALL}/usr/bin/test_conformance/spir/"*.zip; do

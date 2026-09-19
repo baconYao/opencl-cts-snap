@@ -3,7 +3,7 @@
 NO_CONFINEMENT=false
 REMAINING_ARGS=()
 # When invoked directly (bypassing the snap launcher), SNAP is not set.
-# Derive it from this script's own location: bin/test lives at $SNAP/bin/test.
+# Derive it from this script's own location: bin/clinfo lives at $SNAP/bin/clinfo.
 SNAP="${SNAP:-$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")}"
 
 for arg in "$@"; do
@@ -16,15 +16,6 @@ for arg in "$@"; do
             ;;
     esac
 done
-
-if [ -z "${REMAINING_ARGS[0]:-}" ]; then
-    echo "Usage: test [--no-confinement] <test_conformance/path> [args...]"
-    echo ""
-    echo "  --no-confinement  Skip snap-bundled GPU/OpenCL drivers and use host"
-    echo "                    drivers exclusively. Intended for use with the"
-    echo "                    Checkbox framework when snap sandboxing is removed."
-    exit 1
-fi
 
 ARCH="${SNAP_ARCH:-$(dpkg --print-architecture)}"
 case "$ARCH" in
@@ -133,9 +124,4 @@ else
     fi
 fi
 
-TEST_BIN="${SNAP}/usr/bin/test_conformance/${REMAINING_ARGS[0]}"
-TEST_DIR="$(dirname "$TEST_BIN")"
-TEST_NAME="$(basename "$TEST_BIN")"
-
-cd "$TEST_DIR"
-exec "./$TEST_NAME" "${REMAINING_ARGS[@]:1}"
+exec "${SNAP}/usr/bin/clinfo" "${REMAINING_ARGS[@]}"

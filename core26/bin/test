@@ -58,7 +58,72 @@ else
         fi
     done
     if [ -n "$GPU_DIR" ]; then
-        export LD_LIBRARY_PATH="${GPU_DIR}/usr/lib/${ARCH_TRIPLE}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+        # Content-interface providers expose their libraries under different
+        # subpaths depending on how the provider snap is built:
+        #   - mesa-2404 shares its whole snap root, so libraries land at
+        #     usr/lib/<triple> directly.
+        #   - mesa-2604 shares a nested "mesa-2604/" subtree laid out the
+        #     same way: mesa-2604/usr/lib/<triple>.
+        #   - Vendor-shipped drivers (e.g. mediatek-genio-*-gpu-drivers,
+        #     rz-gpu-snap-*) share a "graphics/" subtree laid out as lib/.
+        # Probe every known layout and use whichever ones actually exist.
+        LIB_DIRS=()
+        for subpath in \
+            "usr/lib/${ARCH_TRIPLE}" \
+            "lib" \
+            "mesa-2404/usr/lib/${ARCH_TRIPLE}" \
+            "mesa-2604/usr/lib/${ARCH_TRIPLE}"
+        do
+            if [ -d "${GPU_DIR}/${subpath}" ]; then
+                LIB_DIRS+=("${GPU_DIR}/${subpath}")
+            fi
+        done
+        if [ ${#LIB_DIRS[@]} -eq 0 ]; then
+            echo "Error: no GPU library directory found under ${GPU_DIR}"
+            exit 1
+        fi
+        NEW_LIBRARY_PATH="$(IFS=:; echo "${LIB_DIRS[*]}")"
+        export LD_LIBRARY_PATH="${NEW_LIBRARY_PATH}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+
+        # The content interface only shares the vendor's shared libraries,
+        # not an ICD registration file, so the bundled ocl-icd loader has no
+        # vendor entry to query (/etc/OpenCL/vendors inside this snap is
+        # empty). Detect known vendor OpenCL implementation libraries and
+        # register them dynamically via OCL_ICD_VENDORS, an ocl-icd loader
+        # feature that overrides the vendor directory it scans. Some vendor
+        # packages ship the ICD entry points (clIcdGetPlatformIDsKHR) in
+        # libOpenCL.so rather than in libmali.so (e.g. rz-gpu-snap), so a
+        # single .icd file is written per candidate found instead of
+        # stopping at the first match: the loader silently skips any file
+        # whose target turns out not to be ICD-compliant.
+        ICD_VENDOR_DIR="/tmp/opencl-cts-icd-vendors-$(id -u)"
+        rm -f "${ICD_VENDOR_DIR}"/*.icd 2>/dev/null
+        icd_count=0
+        SEEN_TARGETS=""
+        for dir in "${LIB_DIRS[@]}"; do
+            for vendor_lib in libOpenCL.so libmali.so; do
+                if [ -f "${dir}/${vendor_lib}" ]; then
+                    # Multiple candidate names can be symlinks to the same
+                    # physical driver blob (e.g. libOpenCL.so and libmali.so
+                    # both resolving to libmali.so.0.48.0). Registering the
+                    # same target twice makes the ICD loader report the same
+                    # GPU as two duplicate platforms, so dedupe by real path.
+                    real_target="$(readlink -f "${dir}/${vendor_lib}")"
+                    case " ${SEEN_TARGETS} " in
+                        *" ${real_target} "*)
+                            continue
+                            ;;
+                    esac
+                    SEEN_TARGETS="${SEEN_TARGETS} ${real_target}"
+                    mkdir -p "${ICD_VENDOR_DIR}"
+                    echo "${vendor_lib}" > "${ICD_VENDOR_DIR}/vendor-${icd_count}.icd"
+                    icd_count=$((icd_count + 1))
+                fi
+            done
+        done
+        if [ "$icd_count" -gt 0 ]; then
+            export OCL_ICD_VENDORS="${ICD_VENDOR_DIR}"
+        fi
     else
         echo "Error: gpu content interface not found at ${SNAP}/gpu-2404 or ${SNAP}/gpu-2604"
         echo "Connect it with one of:"

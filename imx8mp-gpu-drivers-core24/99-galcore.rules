@@ -1,0 +1,16 @@
+# Grant the "video" group read/write access to the Vivante GPU device node.
+#
+# By default /dev/galcore ships root-only (crw-------), which blocks
+# unprivileged access to the GPU for BOTH the host apt-installed driver
+# stack and the confined opencl-cts snap identically — this is a plain
+# Linux device-node permission issue, not a snap confinement issue.
+#
+# Install:
+#   sudo cp 99-galcore.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger --name-match=galcore
+#   sudo usermod -aG video "$USER"   # then re-login to pick up the group
+#
+# Verify:
+#   ls -l /dev/galcore   # should show: crw-rw---- root video
+KERNEL=="galcore", MODE="0660", GROUP="video"

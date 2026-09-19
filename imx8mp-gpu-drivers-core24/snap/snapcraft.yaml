@@ -1,0 +1,76 @@
+name: imx8mp-gpu-drivers-core24
+version: '1.0'
+summary: NXP i.MX8MP Vivante GPU driver content snap for opencl-cts
+description: |
+  Re-shares the host's apt-installed imx-gpu-viv (Vivante GC7000UL) OpenCL/
+  EGL/GLES driver stack via a content interface, so confined snaps (such as
+  opencl-cts) can dlopen the real vendor OpenCL implementation
+  (libOpenCL.so, ICD-compliant) without needing --no-confinement.
+
+  This snap only packages files already present on the host from the
+  imx-gpu-viv apt package (part of oem-leuven-imx8mp-gpu-meta); it must be
+  rebuilt via `snapcraft pack --destructive-mode` directly on an NXP Leuven
+  (or equivalent i.MX8MP) machine that has that package installed.
+base: core24
+confinement: strict
+grade: stable
+platforms:
+  arm64:
+
+slots:
+  gpu-2404:
+    interface: content
+    content: gpu-2404
+    read:
+      - $SNAP/graphics
+
+parts:
+  vivante-driver:
+    plugin: nil
+    build-packages: []
+    override-build: |
+      set -e
+      LIBDIR=/usr/lib/aarch64-linux-gnu
+      DEST="${CRAFT_PART_INSTALL}/graphics/lib"
+      mkdir -p "${DEST}"
+      # Copy the Vivante GPU driver + OpenCL ICD-compliant implementation
+      # and its runtime dependencies (symlinks preserved with -P/-a so the
+      # unversioned sonames like libOpenCL.so / libGAL.so resolve exactly
+      # as they do on the host).
+      for name in \
+          libGAL.so \
+          libVSC.so \
+          libArchModelSw.so \
+          libCLC.so \
+          libGLSLC.so \
+          libSPIRV_viv.so \
+          libNNArchPerf.so \
+          'libEGL.so*' \
+          'libGLESv1_CL.so*' \
+          'libGLESv1_CM.so*' \
+          'libGLESv2.so*' \
+          'libGLES_CL.so*' \
+          'libGLES_CM.so*' \
+          'libOpenVG*.so*' \
+          'libOpenVX*.so*' \
+          'libOpenCL.so*' \
+          'libVDK.so*' \
+          'libgbm.so*' \
+          libgbm_viv.so \
+          'libvulkan_VSI.so*' \
+          'libwayland-client.so*' \
+          'libwayland-server.so*' \
+          'libwayland-cursor.so*' \
+          'libwayland-egl.so*'
+      do
+        for f in ${LIBDIR}/${name}; do
+          [ -e "$f" ] || [ -L "$f" ] || continue
+          # Skip apt's diversion backups (*.REAL) - not needed at runtime.
+          case "$f" in
+            *.REAL) continue ;;
+          esac
+          cp -a "$f" "${DEST}/"
+        done
+      done
+      test -f "${DEST}/libOpenCL.so" || { echo "libOpenCL.so missing from ${DEST}"; exit 1; }
+      test -f "${DEST}/libGAL.so" || { echo "libGAL.so missing from ${DEST}"; exit 1; }

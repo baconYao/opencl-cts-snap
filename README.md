@@ -8,17 +8,23 @@ This snap provides an easy way to install and run the tests found in
 The snap is maintained for multiple bases, each in its own self-contained
 snapcraft project directory:
 
-| Directory | Base   | GPU content | Notes                                         |
-|-----------|--------|-------------|-----------------------------------------------|
-| `core24/` | core24 | `gpu-2404`  | Drivers and CTS from the 24.04 archive        |
-| `core26/` | core26 | `gpu-2604`  | Newer drivers and CTS from the 26.04 archive  |
+| Directory | Base   | GPU content       | Arches       | Notes                                        |
+|-----------|--------|-------------------|--------------|-----------------------------------------------|
+| `core22/` | core22 | `graphics-core22` | amd64, arm64 | Drivers and CTS from the 22.04 archive        |
+| `core24/` | core24 | `gpu-2404`        | amd64, arm64 | Drivers and CTS from the 24.04 archive        |
+| `core26/` | core26 | `gpu-2604`        | amd64, arm64 | Newer drivers and CTS from the 26.04 archive  |
+
+The `core22`, `core24` and `core26` variants bundle Intel's compute-runtime
+ICD on amd64, since it's amd64-only; on arm64 the OpenCL ICD is provided by
+the GPU content snap (`mesa-2404`/`mesa-2604`) via the `gpu-2404`/`gpu-2604`
+content interface.
 
 Newer hardware needs newer userspace drivers. If a test fails at startup with
 `clGetPlatformIDs failed`, the base you installed likely predates your GPU;
 use a newer base.
 
 In the Snap Store the variants are published on separate tracks
-(`latest`/default for core24, `core26` for core26).
+(`latest`/default for core24, `core22` for core22, `core26` for core26).
 
 ## Build
 
@@ -26,9 +32,14 @@ Each directory is a directly-buildable snapcraft project. `cd` into the base
 you want and run snapcraft:
 
 ```
+cd core22 && snapcraft pack
 cd core24 && snapcraft pack
 cd core26 && snapcraft pack
 ```
+
+Each project supports both `amd64` and `arm64` via the `platforms` key; run
+`snapcraft pack` on (or cross-build for) the target architecture, or use
+`snapcraft remote-build` to build all platforms via Launchpad.
 
 ## Install
 
@@ -40,6 +51,7 @@ Or from the store, choosing the channel that matches your hardware:
 
 ```
 snap install opencl-cts                       # default (core24) track
+snap install opencl-cts --channel=core22/edge # core22 track
 snap install opencl-cts --channel=core26/edge # core26 track
 ```
 
@@ -47,8 +59,9 @@ The GPU content interface auto-connects for store installs. For a sideloaded
 (`--dangerous`) install, connect it manually to match the base:
 
 ```
-snap connect opencl-cts:gpu-2404 mesa-2404:gpu-2404   # core24
-snap connect opencl-cts:gpu-2604 mesa-2604:gpu-2604   # core26
+snap connect opencl-cts:graphics-core22 mesa-core22:graphics-core22   # core22
+snap connect opencl-cts:gpu-2404 mesa-2404:gpu-2404                   # core24
+snap connect opencl-cts:gpu-2604 mesa-2604:gpu-2604                   # core26
 ```
 
 ## Run
@@ -63,4 +76,10 @@ Then run your chosen test from the previous list like this:
 
 ```
 opencl-cts.test basic/test_basic
+```
+
+To query the OpenCL platforms/devices visible to the snap, run:
+
+```
+opencl-cts.clinfo
 ```

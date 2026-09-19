@@ -9,17 +9,39 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.base }} snap
-    runs-on: ubuntu-24.04
+    name: Build ${{ matrix.base }} (${{ matrix.arch }}) snap
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
       matrix:
         include:
           # base:    the project directory to build (each is a self-contained
           #          snapcraft project rooted at <dir>/snap/snapcraft.yaml)
+          # arch:    informational label for the build matrix entry
+          # runs-on: GitHub-hosted runner matching the arch being built
+          - base: core22
+            arch: amd64
+            runs-on: ubuntu-24.04
+            release: core22/edge
+          - base: core22
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
+            release: core22/edge
           - base: core24
+            arch: amd64
+            runs-on: ubuntu-24.04
+            release: edge
+          - base: core24
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
             release: edge
           - base: core26
+            arch: amd64
+            runs-on: ubuntu-24.04
+            release: core26/edge
+          - base: core26
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
             release: core26/edge
     steps:
       - name: Checkout
@@ -34,7 +56,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: opencl-cts-snap-${{ matrix.base }}
+          name: opencl-cts-snap-${{ matrix.base }}-${{ matrix.arch }}
           path: ${{ steps.build.outputs.snap }}
 
       - name: Publish to Snap Store
