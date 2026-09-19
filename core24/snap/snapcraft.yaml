@@ -1,4 +1,4 @@
-name: opencl-cts
+name: baconyao-opencl-cts
 base: core24
 confinement: strict
 lint:

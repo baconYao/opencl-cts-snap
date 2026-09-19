@@ -44,24 +44,24 @@ Each project supports both `amd64` and `arm64` via the `platforms` key; run
 ## Install
 
 ```
-snap install --dangerous opencl-cts_<version>_<your_arch>.snap
+snap install --dangerous baconyao-opencl-cts_<version>_<your_arch>.snap
 ```
 
 Or from the store, choosing the channel that matches your hardware:
 
 ```
-snap install opencl-cts                       # default (core24) track
-snap install opencl-cts --channel=core22/edge # core22 track
-snap install opencl-cts --channel=core26/edge # core26 track
+snap install baconyao-opencl-cts                       # default (core24) track
+snap install baconyao-opencl-cts --channel=core22/edge # core22 track
+snap install baconyao-opencl-cts --channel=core26/edge # core26 track
 ```
 
 The GPU content interface auto-connects for store installs. For a sideloaded
 (`--dangerous`) install, connect it manually to match the base:
 
 ```
-snap connect opencl-cts:graphics-core22 mesa-core22:graphics-core22   # core22
-snap connect opencl-cts:gpu-2404 mesa-2404:gpu-2404                   # core24
-snap connect opencl-cts:gpu-2604 mesa-2604:gpu-2604                   # core26
+snap connect baconyao-opencl-cts:graphics-core22 mesa-core22:graphics-core22   # core22
+snap connect baconyao-opencl-cts:gpu-2404 mesa-2404:gpu-2404                   # core24
+snap connect baconyao-opencl-cts:gpu-2604 mesa-2604:gpu-2604                   # core26
 ```
 
 ## Run
@@ -69,17 +69,17 @@ snap connect opencl-cts:gpu-2604 mesa-2604:gpu-2604                   # core26
 To list possible tests, run:
 
 ```
-opencl-cts.list-tests
+baconyao-opencl-cts.list-tests
 ```
 
 Then run your chosen test from the previous list like this:
 
 ```
-opencl-cts.test basic/test_basic
+baconyao-opencl-cts.test basic/test_basic
 ```
 
 To query the OpenCL platforms/devices visible to the snap, run:
 
 ```
-opencl-cts.clinfo
+baconyao-opencl-cts.clinfo
 ```

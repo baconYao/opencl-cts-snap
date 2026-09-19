@@ -5,4 +5,4 @@ Minimal configure hook for strict confinement.
 Avoids external snap dependencies and /etc writes.
 """
 
-print("opencl-cts: configure hook completed (strict confinement).")
+print("baconyao-opencl-cts: configure hook completed (strict confinement).")

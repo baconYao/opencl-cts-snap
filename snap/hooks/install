@@ -6,4 +6,4 @@ set -e
 # and snap-local.
 snapctl set agent=enabled || true
 
-echo "opencl-cts: install hook completed (strict confinement)."
+echo "baconyao-opencl-cts: install hook completed (strict confinement)."
