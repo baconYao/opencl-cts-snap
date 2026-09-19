@@ -1,0 +1,99 @@
+#!/bin/bash
+
+NO_CONFINEMENT=false
+REMAINING_ARGS=()
+SNAP="${SNAP:-$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")}"
+
+for arg in "$@"; do
+    case "$arg" in
+        --no-confinement)
+            NO_CONFINEMENT=true
+            ;;
+        *)
+            REMAINING_ARGS+=("$arg")
+            ;;
+    esac
+done
+
+if [ -z "${REMAINING_ARGS[0]:-}" ]; then
+    echo "Usage: test [--no-confinement] <test_conformance/path> [args...]"
+    echo ""
+    echo "  --no-confinement  Skip snap-bundled GPU/OpenCL drivers and use host"
+    echo "                    drivers exclusively. Intended for use with the"
+    echo "                    Checkbox framework when snap sandboxing is removed."
+    exit 1
+fi
+
+ARCH="${SNAP_ARCH:-$(dpkg --print-architecture)}"
+case "$ARCH" in
+    amd64) ARCH_TRIPLE=x86_64-linux-gnu ;;
+    arm64) ARCH_TRIPLE=aarch64-linux-gnu ;;
+    *)     ARCH_TRIPLE="${ARCH}-linux-gnu" ;;
+esac
+
+if [ "$NO_CONFINEMENT" = "true" ]; then
+    HOST_OCL="/usr/lib/${ARCH_TRIPLE}/libOpenCL.so.1"
+    if [ ! -f "$HOST_OCL" ]; then
+        echo "Error: --no-confinement requires the host OpenCL ICD loader at $HOST_OCL"
+        echo "Install intel-opencl-icd (or equivalent) on the host before using this mode."
+        exit 1
+    fi
+    export LD_PRELOAD="${HOST_OCL}"
+    export LD_LIBRARY_PATH="/usr/lib/${ARCH_TRIPLE}:/usr/lib"
+    echo "Host OpenCL ICD loader: ${HOST_OCL}"
+else
+    GPU_DIR="${SNAP}/graphics"
+    if [ ! -d "$GPU_DIR" ]; then
+        echo "Error: graphics-core22 content interface not found at ${GPU_DIR}"
+        echo "Connect it with:"
+        echo "  snap connect baconyao-opencl-cts:graphics-core22 mesa-core22:graphics-core22"
+        exit 1
+    fi
+
+    LIB_DIRS=()
+    for subpath in "usr/lib/${ARCH_TRIPLE}" "lib"; do
+        if [ -d "${GPU_DIR}/${subpath}" ]; then
+            LIB_DIRS+=("${GPU_DIR}/${subpath}")
+        fi
+    done
+    if [ ${#LIB_DIRS[@]} -eq 0 ]; then
+        echo "Error: no GPU library directory found under ${GPU_DIR}"
+        exit 1
+    fi
+    NEW_LIBRARY_PATH="$(IFS=:; echo "${LIB_DIRS[*]}")"
+    export LD_LIBRARY_PATH="${NEW_LIBRARY_PATH}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+
+    ICD_VENDOR_DIR="/tmp/opencl-cts-icd-vendors-$(id -u)"
+    rm -f "${ICD_VENDOR_DIR}"/*.icd 2>/dev/null
+    icd_count=0
+    SEEN_TARGETS=""
+    for dir in "${LIB_DIRS[@]}"; do
+        for vendor_lib in libOpenCL.so libmali.so; do
+            if [ -f "${dir}/${vendor_lib}" ]; then
+                real_target="$(readlink -f "${dir}/${vendor_lib}")"
+                case " ${SEEN_TARGETS} " in
+                    *" ${real_target} "*)
+                        continue
+                        ;;
+                esac
+                SEEN_TARGETS="${SEEN_TARGETS} ${real_target}"
+                mkdir -p "${ICD_VENDOR_DIR}"
+                echo "${vendor_lib}" > "${ICD_VENDOR_DIR}/vendor-${icd_count}.icd"
+                icd_count=$((icd_count + 1))
+            fi
+        done
+    done
+    if [ "$icd_count" -gt 0 ]; then
+        export OCL_ICD_VENDORS="${ICD_VENDOR_DIR}"
+    fi
+fi
+
+TEST_BIN="${SNAP}/usr/bin/test_conformance/${REMAINING_ARGS[0]}"
+TEST_DIR="$(dirname "$TEST_BIN")"
+TEST_NAME="$(basename "$TEST_BIN")"
+
+cd "$TEST_DIR" || {
+    echo "Error: test directory not found: ${TEST_DIR}"
+    exit 1
+}
+exec "./$TEST_NAME" "${REMAINING_ARGS[@]:1}"
