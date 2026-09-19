@@ -85,6 +85,9 @@ parts:
     source-type: git
     build-attributes:
       - enable-patchelf
+    override-pull: |
+      craftctl default
+      git apply "$CRAFT_PROJECT_DIR/snap/local/patches/opencl-cts-fix-zero-extension-buffer.patch"
     build-packages:
       - build-essential
       - cmake
@@ -102,7 +105,6 @@ parts:
       - clinfo
       - on amd64:
         - intel-opencl-icd
-        - intel-ocloc
     override-build: |
       set -eux
       cmake -S "$SNAPCRAFT_PART_SRC" -DCMAKE_BUILD_TYPE=Release -DCL_INCLUDE_DIR=/usr/include/CL -DCL_LIB_DIR=/usr/lib/ -DOPENCL_LIBRARIES=OpenCL

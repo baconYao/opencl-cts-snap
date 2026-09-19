@@ -1,0 +1,36 @@
+From 7c65afc4e71b6b6b6023b598f9f675ebfeffc8a5 Mon Sep 17 00:00:00 2001
+From: Sven van Haastregt <sven.vanhaastregt@arm.com>
+Date: Mon, 23 May 2022 09:47:59 +0100
+Subject: [PATCH] test_compiler_defines_for_extensions: fix overflow
+
+GCC 11.2.0 warns about a possible string overflow when no extensions
+are reported because no space would be allocated for the terminating
+null byte.
+---
+ test_conformance/compiler/test_compiler_defines_for_extensions.cpp | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/test_conformance/compiler/test_compiler_defines_for_extensions.cpp b/test_conformance/compiler/test_compiler_defines_for_extensions.cpp
+index 861b88dc..25cd3820 100644
+--- a/test_conformance/compiler/test_compiler_defines_for_extensions.cpp
++++ b/test_conformance/compiler/test_compiler_defines_for_extensions.cpp
+@@ -322,8 +322,15 @@ int test_compiler_defines_for_extensions(cl_device_id device, cl_context context
+     }
+ 
+     // Build the kernel
+-    char *kernel_code = (char*)malloc(1025*256*(num_not_supported_extensions+num_of_supported_extensions));
+-    memset(kernel_code, 0, 1025*256*(num_not_supported_extensions+num_of_supported_extensions));
++    char *kernel_code = (char *)malloc(
++        1
++        + 1025 * 256
++            * (num_not_supported_extensions + num_of_supported_extensions));
++    memset(
++        kernel_code, 0,
++        1
++            + 1025 * 256
++                * (num_not_supported_extensions + num_of_supported_extensions));
+ 
+     int i, index = 0;
+     strcat(kernel_code, kernel_strings[0]);
+-- 
+2.34.1
