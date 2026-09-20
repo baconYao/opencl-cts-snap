@@ -62,6 +62,20 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
 
+      - name: Verify Snap Store credentials
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request_target' &&
+          github.event.pull_request.merged == true &&
+          github.event.pull_request.base.ref == 'baconyao-experiment')
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          if [ -z "$SNAPCRAFT_STORE_CREDENTIALS" ]; then
+            echo "::error::SNAPCRAFT_STORE_CREDENTIALS is not configured"
+            exit 1
+          fi
+
       - name: Build snap
         id: build
         uses: snapcore/action-build@v1
@@ -76,9 +90,10 @@ jobs:
 
       - name: Publish to Snap Store
         if: >-
-          github.event_name == 'pull_request_target' &&
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request_target' &&
           github.event.pull_request.merged == true &&
-          github.event.pull_request.base.ref == 'baconyao-experiment'
+          github.event.pull_request.base.ref == 'baconyao-experiment')
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
