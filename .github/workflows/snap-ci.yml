@@ -2,6 +2,9 @@ name: Snap CI
 
 on:
   pull_request:
+    branches:
+      - main
+      - baconyao-experiment
   push:
     branches:
       - '**'
