@@ -8,11 +8,11 @@ This snap provides an easy way to install and run the tests found in
 The snap is maintained for multiple bases, each in its own self-contained
 snapcraft project directory:
 
-| Directory | Base   | GPU content       | Arches       | Notes                                        |
-|-----------|--------|-------------------|--------------|-----------------------------------------------|
-| `core22/` | core22 | `graphics-core22` | amd64, arm64 | Drivers and CTS from the 22.04 archive        |
-| `core24/` | core24 | `gpu-2404`        | amd64, arm64 | Drivers and CTS from the 24.04 archive        |
-| `core26/` | core26 | `gpu-2604`        | amd64, arm64 | Newer drivers and CTS from the 26.04 archive  |
+| Directory | Snap name                  | Base   | GPU content       | Arches       |
+|-----------|----------------------------|--------|-------------------|--------------|
+| `core22/` | `baconyao-opencl-cts-22`   | core22 | `graphics-core22` | amd64, arm64 |
+| `core24/` | `baconyao-opencl-cts-24`   | core24 | `gpu-2404`        | amd64, arm64 |
+| `core26/` | `baconyao-opencl-cts-26`   | core26 | `gpu-2604`        | amd64, arm64 |
 
 The `core22`, `core24` and `core26` variants bundle Intel's compute-runtime
 ICD on amd64, since it's amd64-only; on arm64 the OpenCL ICD is provided by
@@ -23,8 +23,8 @@ Newer hardware needs newer userspace drivers. If a test fails at startup with
 `clGetPlatformIDs failed`, the base you installed likely predates your GPU;
 use a newer base.
 
-In the Snap Store the variants are published on separate tracks
-(`latest`/default for core24, `core22` for core22, `core26` for core26).
+In the Snap Store, each base is published as a separate snap on its `edge`
+channel.
 
 ## Build
 
@@ -44,42 +44,65 @@ Each project supports both `amd64` and `arm64` via the `platforms` key; run
 ## Install
 
 ```
-snap install --dangerous baconyao-opencl-cts_<version>_<your_arch>.snap
+snap install --dangerous baconyao-opencl-cts-<base>_<version>_<your_arch>.snap
 ```
 
-Or from the store, choosing the channel that matches your hardware:
+Or install the snap with the base that matches your hardware:
 
 ```
-snap install baconyao-opencl-cts                       # default (core24) track
-snap install baconyao-opencl-cts --channel=core22/edge # core22 track
-snap install baconyao-opencl-cts --channel=core26/edge # core26 track
+snap install baconyao-opencl-cts-22 --edge
+snap install baconyao-opencl-cts-24 --edge
+snap install baconyao-opencl-cts-26 --edge
 ```
 
 The GPU content interface auto-connects for store installs. For a sideloaded
 (`--dangerous`) install, connect it manually to match the base:
 
 ```
-snap connect baconyao-opencl-cts:graphics-core22 mesa-core22:graphics-core22   # core22
-snap connect baconyao-opencl-cts:gpu-2404 mesa-2404:gpu-2404                   # core24
-snap connect baconyao-opencl-cts:gpu-2604 mesa-2604:gpu-2604                   # core26
+snap connect baconyao-opencl-cts-22:graphics-core22 mesa-core22:graphics-core22
+snap connect baconyao-opencl-cts-24:gpu-2404 mesa-2404:gpu-2404
+snap connect baconyao-opencl-cts-26:gpu-2604 mesa-2604:gpu-2604
 ```
 
 ## Run
 
-To list possible tests, run:
+Use the command namespace for the installed base. For example, with core24:
 
 ```
-baconyao-opencl-cts.list-tests
+baconyao-opencl-cts-24.list-tests
 ```
 
 Then run your chosen test from the previous list like this:
 
 ```
-baconyao-opencl-cts.test basic/test_basic
+baconyao-opencl-cts-24.test basic/test_basic
 ```
 
 To query the OpenCL platforms/devices visible to the snap, run:
 
 ```
-baconyao-opencl-cts.clinfo
+baconyao-opencl-cts-24.clinfo
 ```
+
+## Publishing credentials
+
+Each workflow uses a credential restricted to its own snap. Export the three
+credentials and save them as separate repository secrets:
+
+```
+snapcraft export-login core22-credentials.txt \
+  --snaps=baconyao-opencl-cts-22 \
+  --channels=edge
+snapcraft export-login core24-credentials.txt \
+  --snaps=baconyao-opencl-cts-24 \
+  --channels=edge
+snapcraft export-login core26-credentials.txt \
+  --snaps=baconyao-opencl-cts-26 \
+  --channels=edge
+
+gh secret set SNAPCRAFT_STORE_CREDENTIALS_CORE22 < core22-credentials.txt
+gh secret set SNAPCRAFT_STORE_CREDENTIALS_CORE24 < core24-credentials.txt
+gh secret set SNAPCRAFT_STORE_CREDENTIALS_CORE26 < core26-credentials.txt
+```
+
+Do not commit the credential files.
