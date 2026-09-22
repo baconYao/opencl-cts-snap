@@ -1,0 +1,76 @@
+name: Snap core24
+
+on:
+  pull_request:
+    branches:
+      - main
+      - baconyao-experiment
+    types:
+      - opened
+      - synchronize
+      - reopened
+  pull_request_target:
+    branches:
+      - baconyao-experiment
+    types:
+      - closed
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.merged == true
+    name: Build core24 (${{ matrix.arch }}) snap
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Verify Snap Store credentials
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request_target' &&
+          github.event.pull_request.merged == true)
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS_CORE24 }}
+        run: |
+          if [ -z "$SNAPCRAFT_STORE_CREDENTIALS" ]; then
+            echo "::error::SNAPCRAFT_STORE_CREDENTIALS_CORE24 is not configured"
+            exit 1
+          fi
+
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@v1
+        with:
+          path: core24
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: baconyao-opencl-cts-24-${{ matrix.arch }}
+          path: ${{ steps.build.outputs.snap }}
+
+      - name: Publish to Snap Store
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request_target' &&
+          github.event.pull_request.merged == true)
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS_CORE24 }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge
